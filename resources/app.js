@@ -1,11 +1,12 @@
 import Vue from 'vue'
 import router from './router'
+import App from './app.vue'
 import './lib/bootstrap-vue'
 
 document.addEventListener('DOMContentLoaded', () => {
   new Vue({
     name: 'ShareLoc',
     router,
-    template: `<router-view/>`
+    render: h => h(App)
   }).$mount('#app')
 })
