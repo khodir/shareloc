@@ -10,7 +10,7 @@
   "scripts": {
     "watch": "mix -- --watch",
     "dev": "mix -- --hot",
-    "build": "mix -- --production"
+    "build": "mix --production"
   },
   "keywords": [],
   "author": "",
