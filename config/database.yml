@@ -89,8 +89,6 @@ test:
 #
 production:
   <<: *default
-  host: <%= ENV['DB_HOST'] %>
-  port: <%= ENV['DB_PORT'] %>
-  database: <%= ENV['DB_NAME'] %>
-  username: <%= ENV['DB_USER'] %>
-  password: <%= ENV['DB_PASSWORD'] %>
+  database: shareloc_production
+  username: shareloc
+  password: <%= ENV['SHARELOC_DATABASE_PASSWORD'] %>
