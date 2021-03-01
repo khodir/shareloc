@@ -33,7 +33,7 @@
     <!-- Content -->
     <div class="content">
       <div class="row">
-        <div class="col-12 col-md-8 offset-md-2">
+        <div class="col-12 col-md-6 offset-md-3">
           <!-- Search -->
           <div class="card">
             <div class="card-header">
@@ -58,90 +58,193 @@
         </div>
       </div>
     </div>
+
+    <!-- Focus Current Location -->
+    <div class="focus-btn">
+      <button @click="focusToLocation" class="btn rounded-circle btn-xl btn-light">
+        <i class="fas fa-crosshairs"></i>
+      </button>
+    </div>
   </div>
 </template>
 
 <script>
 import Map from 'ol/Map'
-import TileLayer from 'ol/layer/Tile'
 import View from 'ol/View'
-import Geolocation from 'ol/Geolocation'
-import Point from 'ol/geom/Point'
+import TileLayer from 'ol/layer/Tile'
+import OSM from 'ol/source/OSM'
+import ScaleLine from 'ol/control/ScaleLine'
 import Feature from 'ol/Feature'
+import Geolocation from 'ol/Geolocation'
+import Style from 'ol/style/Style'
+import Circle from 'ol/style/Circle'
+import TextStyle from 'ol/style/Text'
+import Stroke from 'ol/style/Stroke'
+import Fill from 'ol/style/Fill'
+import Point from 'ol/geom/Point'
 import VectorLayer from 'ol/layer/Vector'
-import { Style, Icon} from 'ol/style'
-import {OSM, Vector as VectorSource} from 'ol/source'
-
+import VectorSource from 'ol/source/Vector'
+import Modify from 'ol/interaction/Modify'
+import * as interactions from 'ol/interaction'
+import * as eventConditions from 'ol/events/condition'
+ 
 export default {
   name: 'Home',
   data() {
     return {
-      map: null,
-      geolocation: null,
-      mapView: null,
+      map: new Map({
+        layers: [
+          new TileLayer({
+            source: new OSM()
+          })
+        ],
+        view: new View({
+          center: [0, 0],
+          zoom: 15,
+          maxZoom: 20
+        }),
+        controls: [new ScaleLine()],
+        interactions: [
+          new interactions.DragRotate(),
+          new interactions.DragPan(),
+          new interactions.PinchRotate(),
+          new interactions.PinchZoom(),
+          new interactions.KeyboardPan(),
+          new interactions.KeyboardZoom(),
+          new interactions.MouseWheelZoom(),
+          new interactions.DragZoom()
+        ]
+      }),
+      geoLocation: new Geolocation({
+        trackingOptions: {
+          enableHighAccuracy: true
+        },
+        tracking: true
+      }),
+      vectorLayer: new VectorLayer({style: function(feature, resolution) {
+        const name = feature.get('name')
+        if (name === 'position') {
+          return new Style({
+            image: new Circle({
+              radius: 10,
+              fill: new Fill({
+                color: '#3399CC',
+              }),
+              stroke: new Stroke({
+                color: '#fff',
+                width: 2,
+              })
+            })
+          })
+        } else {
+          return new Style({
+            text: new TextStyle({
+              text: '\uf3c5',
+              scale: 1.5,
+              textBaseline: 'bottom',
+              font: '900 16px "Font Awesome 5 Free"',
+              fill: new Fill({ color: '#ec4646' }),
+              stroke: new Stroke({ color: 'black', width: 1 })
+            })
+          })
+        }
+      }}),
+      vectorSource: new VectorSource(),
+      positionFeature: new Feature({name: 'position', id: 'position'}),
       sidebarVisible: false,
       usersBarVisible: false
     }
   },
-  // TODO : Fix code
   mounted() {
     const vm = this
-    
-    const view = new View({
-      zoom: 19,
-      maxZoom: 19,
-      center: [0, 0]
-    })
-
-    const map = new Map({
-      layers: [
-        new TileLayer({
-        source: new OSM({
-          tiles: 'https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=141a66049e494053ba423db6db54893b'
-        })
-        })
-      ],
-      target: 'map',
-      view: view
-    })
-
-    if (navigator.geolocation) {
-      const geolocation = new Geolocation({
-        trackingOptions: {
-          enableHighAccuracy: true
-        },
-        projection: view.getProjection()
+    Promise.resolve()
+      .then(() => vm.map.setTarget('map'))
+      .then(() => vm.geoLocation.setProjection(vm.map.getView().getProjection()))
+      .then(() => vm.map.addLayer(vm.vectorLayer))
+      .then(() => vm.vectorLayer.setSource(vm.vectorSource))
+      .then(() => vm.vectorSource.addFeature(vm.positionFeature))
+      .then(() => vm.listenLocationChange())
+      .then(() => vm.listenMapDblClick())
+      .then(() => vm.focusToLocation())
+      .then(() => vm.listenModify())
+      .then(() => vm.listenSelect())
+  },
+  methods: {
+    listenSelect() {
+      const vm = this
+      const select = new interactions.Select({
+        condition: eventConditions.pointerMove
       })
 
-      geolocation.setTracking(true)
+      // TODO : Add Popup When Selected
+      select.on('select', (e) => console.log(e))
 
-      var accuracyFeature = new Feature()
-      geolocation.on('change:accuracyGeometry', function () {
-        accuracyFeature.setGeometry(geolocation.getAccuracyGeometry())
-      })
-
-      var positionFeature = new Feature();
-      positionFeature.setStyle(
-        new Style({
-          image: new Icon({
-            src: 'https://api.geoapify.com/v1/icon/?type=awesome&color=red&icon=user&apiKey=141a66049e494053ba423db6db54893b',
-            imgSize: [100, 100]
-          }),
-        })
-      );
-
-      geolocation.on('change:position', function () {
-        var coordinates = geolocation.getPosition();
-        positionFeature.setGeometry(coordinates ? new Point(coordinates) : null)
-        map.getView().setCenter(coordinates)
+      vm.map.addInteraction(select)
+    },
+    listenModify() {
+      const vm = this
+      const modify = new Modify({
+        hitDetection: vm.vectorLayer,
+        source: vm.vectorSource,
       });
 
-      new VectorLayer({
-        map: map,
-        source: new VectorSource({
-          features: [positionFeature],
-        }),
+      const target = vm.map.getTargetElement()
+
+      modify.on(['modifystart', 'modifyend'], function (evt) {
+        target.style.cursor = evt.type === 'modifystart' ? 'grabbing' : 'pointer'
+
+        if (evt.type === 'modifyend') {
+          if(evt.features.item(0).get('id') !== 'position') {
+            // TODO : Update Code
+            alert('want to share this location ?')
+          }
+        }
       })
+
+      modify.on('click', (evt) => {
+        alert('click')
+      })
+
+      var overlaySource = modify.getOverlay().getSource();
+      overlaySource.on(['addfeature', 'removefeature'], function (evt) {
+        target.style.cursor = evt.type === 'addfeature' ? 'pointer' : ''
+      })
+
+      vm.map.addInteraction(modify)
+    },
+    listenMapDblClick() {
+      const vm = this
+
+      vm.map.on('dblclick', (e) => {
+        const feature = new Feature()
+        feature.setGeometry(new Point(e.coordinate))
+        vm.vectorLayer.getSource().addFeature(feature)
+      })
+    },
+    listenLocationChange() {
+      const vm = this
+
+      if (vm.geoLocation !== null) {
+        vm.geoLocation.on('change:position', () => {
+          const coords = vm.geoLocation.getPosition()
+          vm.positionFeature.setGeometry(coords ? new Point(coords) : null)
+        })
+      }
+    },
+    focusToLocation() {
+      const vm = this
+      if (vm.geoLocation !== null) {
+        setTimeout(() => {
+          const initCoords = vm.geoLocation.getPosition()
+          vm.positionFeature.setGeometry(new Point(initCoords))
+          const view = vm.map.getView()
+          view.animate({zoom: 15}, {center: initCoords, duration: 2000})
+        }, 500)
+      }
+    },
+    addNewMarker() {
+      const vm = this
+      // const 
     }
   }
 }
@@ -160,5 +263,13 @@ export default {
   min-width: 100%;
   top: 0%;
   left: 0%;
+}
+
+.focus-btn {
+  position: absolute;
+  overflow: hidden;
+  min-width: 30px;
+  bottom: 30px;
+  right: 25px;
 }
 </style>
