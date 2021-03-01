@@ -10,10 +10,23 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_02_25_131253) do
+ActiveRecord::Schema.define(version: 2021_03_01_074458) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+  enable_extension "uuid-ossp"
+
+  create_table "locations", primary_key: "location_id", id: :uuid, default: -> { "uuid_generate_v4()" }, force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "location_name", null: false
+    t.string "tag", null: false
+    t.decimal "longtitude", precision: 64, scale: 9, null: false
+    t.decimal "latitude", precision: 64, scale: 9, null: false
+    t.string "created_by"
+    t.string "updated_by"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+  end
 
   create_table "users", force: :cascade do |t|
     t.string "email", default: "", null: false
@@ -29,4 +42,5 @@ ActiveRecord::Schema.define(version: 2021_02_25_131253) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "locations", "users", on_update: :cascade, on_delete: :cascade
 end

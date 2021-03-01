@@ -1,6 +1,6 @@
 class EnableUuidExtensions < ActiveRecord::Migration[6.1]
   def up
-    execute 'CREATE EXTENSION IF NO EXISTS "uuis-ossp"'
+    execute 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'
   end
 
   def down
